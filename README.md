@@ -27,10 +27,18 @@ System do zarządzania zmianami inżynieryjnymi (Engineering Change Management),
 2. Przejdź do zakładki "Codespaces"
 3. Kliknij "Create codespace on main"
 
-### Krok 2: Poczekaj na inicjalizację środowiska
+### Krok 2: Uruchom skrypt konfiguracyjny
 
-Środowisko zostanie automatycznie skonfigurowane dzięki plikowi `.devcontainer/devcontainer.json`.
-Zależności zostaną zainstalowane automatycznie.
+Jeśli skrypt nie uruchomił się automatycznie, wykonaj:
+
+```bash
+bash ./setup-codespace.sh
+```
+
+Skrypt wykona następujące czynności:
+- Zresetuje lokalne repozytorium, aby pasowało do remote
+- Zapewni istnienie katalogu public z niezbędnymi plikami
+- Zainstaluje zależności
 
 ### Krok 3: Uruchom aplikację
 
@@ -48,9 +56,18 @@ npm start
 
 Jeśli napotkasz problemy z uruchomieniem aplikacji w Codespaces:
 
-1. Sprawdź, czy port 3000 jest ustawiony jako "Public" w zakładce "PORTS"
-2. Zrestartuj serwer aplikacji (`Ctrl+C` a następnie `npm start`)
-3. Odśwież stronę w przeglądarce
+1. Upewnij się, że skrypt konfiguracyjny został uruchomiony:
+   ```bash
+   bash ./setup-codespace.sh
+   ```
+
+2. Sprawdź, czy port 3000 jest ustawiony jako "Public" w zakładce "PORTS"
+
+3. Sprawdź, czy katalog `public` istnieje i zawiera plik `index.html`:
+   ```bash
+   ls -la public
+   ```
+
 4. Jeśli to nie pomoże, zrestartuj cały Codespace (zamknij i utwórz nowy)
 
 ## Struktura projektu
