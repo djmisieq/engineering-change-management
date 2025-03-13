@@ -18,8 +18,10 @@
       ]
     }
   },
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "bash ./setup-codespace.sh",
   "hostRequirements": {
     "memory": "4gb"
-  }
+  },
+  "waitFor": "postCreateCommand",
+  "updateContentCommand": "bash ./setup-codespace.sh"
 }
