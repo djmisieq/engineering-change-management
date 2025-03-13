@@ -19,32 +19,39 @@ System do zarządzania zmianami inżynieryjnymi (Engineering Change Management),
 - Zarządzanie stanem: React Hooks
 - Mock API: do symulacji backendu
 
-## Uruchomienie projektu
+## Uruchomienie projektu w GitHub Codespaces
 
-### Wymagania wstępne
+### Krok 1: Otwórz repozytorium w Codespaces
 
-- Node.js >= 18.x
-- npm >= 9.x
+1. Na stronie repozytorium kliknij zielony przycisk "Code"
+2. Przejdź do zakładki "Codespaces"
+3. Kliknij "Create codespace on main"
 
-### Instalacja i uruchomienie
+### Krok 2: Poczekaj na inicjalizację środowiska
 
-1. Sklonuj repozytorium:
-```bash
-git clone https://github.com/djmisieq/engineering-change-management.git
-cd engineering-change-management
-```
+Środowisko zostanie automatycznie skonfigurowane dzięki plikowi `.devcontainer/devcontainer.json`.
+Zależności zostaną zainstalowane automatycznie.
 
-2. Zainstaluj zależności:
-```bash
-npm install
-```
+### Krok 3: Uruchom aplikację
 
-3. Uruchom aplikację:
 ```bash
 npm start
 ```
 
-Aplikacja będzie dostępna pod adresem: [http://localhost:3000](http://localhost:3000)
+### Krok 4: Sprawdź działanie aplikacji
+
+1. W dolnym panelu Codespaces znajdź zakładkę "PORTS"
+2. Port 3000 powinien być widoczny jako "React App" z widocznością "Public"
+3. Kliknij "Open in Browser" przy porcie 3000
+
+## Rozwiązywanie problemów z Codespaces
+
+Jeśli napotkasz problemy z uruchomieniem aplikacji w Codespaces:
+
+1. Sprawdź, czy port 3000 jest ustawiony jako "Public" w zakładce "PORTS"
+2. Zrestartuj serwer aplikacji (`Ctrl+C` a następnie `npm start`)
+3. Odśwież stronę w przeglądarce
+4. Jeśli to nie pomoże, zrestartuj cały Codespace (zamknij i utwórz nowy)
 
 ## Struktura projektu
 
@@ -61,11 +68,3 @@ src/
 ## Rozwój projektu
 
 Projekt jest rozwijany iteracyjnie, począwszy od MVP skoncentrowanego na froncie, a następnie rozszerzany o pełną integrację z backendem i dodatkowe funkcjonalności.
-
-### Plany rozwoju
-
-- Integracja z rzeczywistym backendem
-- System zarządzania rolami i uprawnieniami
-- Generowanie dokumentów ECN w formacie PDF
-- Integracja z systemem ERP
-- Moduł komunikacji wewnętrznej
