@@ -1,0 +1,16 @@
+{
+  "name": "ECM System",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:18",
+  "forwardPorts": [3000],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next",
+        "github.vscode-pull-request-github"
+      ]
+    }
+  },
+  "postCreateCommand": "npm install"
+}
