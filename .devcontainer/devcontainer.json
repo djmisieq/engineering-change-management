@@ -1,6 +1,6 @@
 {
   "name": "ECM System",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:18",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:16",
   "forwardPorts": [3000],
   "portsAttributes": {
     "3000": {
@@ -23,10 +23,14 @@
       }
     }
   },
-  "postCreateCommand": "bash ./setup-codespace.sh",
+  "postCreateCommand": "bash ./.devcontainer/postCreateCommand.sh",
   "hostRequirements": {
     "memory": "4gb"
   },
   "waitFor": "postCreateCommand",
-  "updateContentCommand": "bash ./setup-codespace.sh"
+  "updateContentCommand": "bash ./setup-codespace.sh",
+  "remoteUser": "node",
+  "remoteEnv": {
+    "NODE_OPTIONS": "--openssl-legacy-provider"
+  }
 }
