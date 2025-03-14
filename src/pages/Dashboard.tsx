@@ -147,3 +147,123 @@ interface TabPanelProps {
   index: number;
   value: number;
 }
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`panel-tabpanel-${index}`}
+      aria-labelledby={`panel-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+    </div>
+  );
+}
+
+const Dashboard: React.FC = () => {
+  const [changes, setChanges] = useState<Change[]>([]);
+  const [changeTypes, setChangeTypes] = useState<ChangeType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tabValue, setTabValue] = useState(0);
+  const [filterReasonOfChange, setFilterReasonOfChange] = useState('');
+  const [filterBoatRange, setFilterBoatRange] = useState('');
+  const navigate = useNavigate();
+  const theme = useTheme();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Równoległe pobieranie danych
+        const [changesData, typesData] = await Promise.all([
+          getMockChanges(),
+          getChangeTypes()
+        ]);
+        
+        setChanges(changesData);
+        setChangeTypes(typesData.items);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+
+  const handleFilterReasonChange = (event: SelectChangeEvent) => {
+    setFilterReasonOfChange(event.target.value);
+  };
+
+  const handleFilterRangeChange = (event: SelectChangeEvent) => {
+    setFilterBoatRange(event.target.value);
+  };
+
+  // Funkcja zwracająca kolor/etykietę dla typu zmiany
+  const getChangeTypeInfo = (typeId: string | undefined) => {
+    if (!typeId) return { code: "", label: "Nieokreślony", color: theme.palette.grey[500] };
+    
+    const type = changeTypes.find(t => t.id === typeId);
+    if (!type) return { code: "", label: "Nieokreślony", color: theme.palette.grey[500] };
+    
+    const parts = type.code.split(' - ');
+    const number = parts[0];
+    
+    let color;
+    switch (number) {
+      case "1":
+        color = theme.palette.info.main;
+        break;
+      case "2":
+        color = theme.palette.warning.main;
+        break;
+      case "3":
+        color = theme.palette.success.main;
+        break;
+      case "4":
+        color = theme.palette.secondary.main;
+        break;
+      default:
+        color = theme.palette.primary.main;
+    }
+    
+    return {
+      code: number,
+      label: parts[1] || type.name,
+      color: color
+    };
+  };
+
+  // Filtrowanie zmian w zależności od aktywnej zakładki
+  const filteredChanges = changes.filter(change => {
+    // Podstawowe filtrowanie wg zakładek
+    if (tabValue === 0) { // Voting
+      return change.votingStatus === 'Pending' || change.votingStatus === 'InProgress';
+    } else if (tabValue === 1) { // Progress
+      return change.status === 'InProgress' || change.status === 'Implementing';
+    } else { // Archive
+      return change.votingStatus === 'Completed' || change.votingStatus === 'Canceled';
+    }
+  }).filter(change => {
+    // Dodatkowe filtrowanie - typ zmiany
+    if (filterReasonOfChange && change.reasonOfChange !== filterReasonOfChange) {
+      return false;
+    }
+    
+    // Dodatkowe filtrowanie - zakres łodzi
+    if (filterBoatRange && change.boatRange !== filterBoatRange) {
+      return false;
+    }
+    
+    return true;
+  });
