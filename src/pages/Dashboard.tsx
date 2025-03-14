@@ -267,3 +267,164 @@ const Dashboard: React.FC = () => {
     
     return true;
   });
+
+  return (
+    <PageTransition>
+      <Box sx={{ maxWidth: 1200, mx: 'auto', mb: 8 }}>
+        {/* Nagłówek */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+          <Box sx={{ width: 240 }}>
+            <SaxdorLogo />
+          </Box>
+          <Typography 
+            variant="h4" 
+            component="h1" 
+            align="center"
+            sx={{ 
+              fontWeight: 'bold',
+              flex: 1
+            }}
+          >
+            Product Council Panel
+          </Typography>
+          <Box sx={{ width: 240, display: 'flex', justifyContent: 'flex-end' }}>
+            <TextField
+              placeholder="Search by ECR title"
+              size="small"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+                sx: { borderRadius: 2 }
+              }}
+              sx={{ width: 200 }}
+            />
+          </Box>
+        </Box>
+        
+        <Grid container spacing={4}>
+          {/* Panel boczny */}
+          <Grid item xs={12} md={1}>
+            <Paper 
+              elevation={0}
+              sx={{ 
+                borderRadius: 2,
+                p: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                alignItems: 'center'
+              }}
+            >
+              <SidebarIcon 
+                icon={<Avatar src="/api/placeholder/60/60" alt="User" sx={{ width: 36, height: 36 }} />} 
+                label="Product Council" 
+                active={true}
+              />
+              <Divider flexItem />
+              <SidebarIcon icon={<PersonOutlineIcon />} label="Manager Panel" />
+              <SidebarIcon icon={<DescriptionOutlinedIcon />} label="Engineer" />
+              <SidebarIcon icon={<ShoppingCartOutlinedIcon />} label="Sourcing" />
+              <SidebarIcon icon={<AssessmentOutlinedIcon />} label="Quality" badge={3} />
+              <SidebarIcon icon={<PeopleOutlineIcon />} label="Purchasing" />
+              <SidebarIcon icon={<FolderOpenOutlinedIcon />} label="Finance" />
+              <SidebarIcon icon={<DescriptionOutlinedIcon />} label="Product" />
+              <SidebarIcon icon={<CalendarMonthOutlinedIcon />} label="Calendar" />
+            </Paper>
+          </Grid>
+          
+          {/* Główna zawartość */}
+          <Grid item xs={12} md={11}>
+            <Paper
+              elevation={0}
+              sx={{ 
+                borderRadius: 2,
+                overflow: 'hidden'
+              }}
+            >
+              {/* Zakładki */}
+              <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tabs 
+                  value={tabValue} 
+                  onChange={handleTabChange}
+                  variant="fullWidth"
+                >
+                  <Tab label="Voting" />
+                  <Tab label="Progress" />
+                  <Tab label="Archive" />
+                </Tabs>
+              </Box>
+              
+              {/* Filtry */}
+              <Box sx={{ p: 2, display: 'flex', gap: 2 }}>
+                <FormControl size="small" sx={{ minWidth: 200 }}>
+                  <Select
+                    value={filterReasonOfChange}
+                    onChange={handleFilterReasonChange}
+                    displayEmpty
+                    IconComponent={KeyboardArrowDownIcon}
+                    sx={{ borderRadius: 1 }}
+                  >
+                    <MenuItem value="">
+                      <em>Reason of change</em>
+                    </MenuItem>
+                    <MenuItem value="reason-001">Customer Request</MenuItem>
+                    <MenuItem value="reason-002">Quality Issue</MenuItem>
+                    <MenuItem value="reason-003">Safety Concern</MenuItem>
+                    <MenuItem value="reason-004">Cost Optimization</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <Select
+                    value={filterBoatRange}
+                    onChange={handleFilterRangeChange}
+                    displayEmpty
+                    IconComponent={KeyboardArrowDownIcon}
+                    sx={{ borderRadius: 1 }}
+                  >
+                    <MenuItem value="">
+                      <em>Boat range</em>
+                    </MenuItem>
+                    <MenuItem value="range-001">SX</MenuItem>
+                    <MenuItem value="range-002">NX</MenuItem>
+                    <MenuItem value="range-003">FX</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <Select
+                    value=""
+                    displayEmpty
+                    IconComponent={KeyboardArrowDownIcon}
+                    sx={{ borderRadius: 1 }}
+                  >
+                    <MenuItem value="">
+                      <em>Created from</em>
+                    </MenuItem>
+                    <MenuItem value="today">Today</MenuItem>
+                    <MenuItem value="yesterday">Yesterday</MenuItem>
+                    <MenuItem value="lastWeek">Last week</MenuItem>
+                    <MenuItem value="lastMonth">Last month</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <Select
+                    value=""
+                    displayEmpty
+                    IconComponent={KeyboardArrowDownIcon}
+                    sx={{ borderRadius: 1 }}
+                  >
+                    <MenuItem value="">
+                      <em>Created until</em>
+                    </MenuItem>
+                    <MenuItem value="today">Today</MenuItem>
+                    <MenuItem value="yesterday">Yesterday</MenuItem>
+                    <MenuItem value="lastWeek">Last week</MenuItem>
+                    <MenuItem value="lastMonth">Last month</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
