@@ -13,520 +13,137 @@ import {
   TableRow,
   Chip,
   Button,
-  Card,
-  CardContent,
   useTheme,
   alpha,
-  IconButton,
-  TablePagination,
-  Tooltip,
   Skeleton,
   Stack,
   Divider,
+  Tabs,
+  Tab,
+  TextField,
+  InputAdornment,
+  FormControl,
+  Select,
+  MenuItem,
+  SelectChangeEvent,
+  Avatar,
+  Badge,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
-import CircleIcon from '@mui/icons-material/Circle';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
+import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
+import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
+import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import SearchIcon from '@mui/icons-material/Search';
-import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+
 import { getMockChanges } from '../services/mockApi';
+import { 
+  getChangeTypes 
+} from '../services/dictionaryApi';
 import { Change } from '../types/change';
+import { ChangeType } from '../types/dictionaries';
 import PageTransition from '../components/PageTransition';
 import { motion } from 'framer-motion';
 
-const Dashboard: React.FC = () => {
-  const [changes, setChanges] = useState<Change[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const navigate = useNavigate();
+// Logo SAXDOR
+const SaxdorLogo = () => (
+  <svg width="150" height="40" viewBox="0 0 150 40" fill="none">
+    <path d="M35.4805 19.9997H11.1602V24.0412H35.4805V19.9997Z" fill="#0C2340"/>
+    <path d="M35.4805 27.9656H11.1602V32.0071H35.4805V27.9656Z" fill="#0C2340"/>
+    <path d="M35.4805 12.0337H11.1602V16.0752H35.4805V12.0337Z" fill="#0C2340"/>
+    <path d="M53.2266 12.0338H47.5V32.0072H53.2266V12.0338Z" fill="#0C2340"/>
+    <path d="M68.4724 12.0338L64.4307 20.6411L68.4724 29.2483V32.0072H62.7458V29.2483L58.7041 20.6411L62.7458 12.0338H68.4724Z" fill="#0C2340"/>
+    <path d="M84.8989 22.0189H82.8787V17.9774H84.8989C85.999 17.9774 86.9191 18.3183 86.9191 19.9982C86.9191 21.678 85.999 22.0189 84.8989 22.0189ZM84.8989 12.0338H79.1724V32.0072H82.8787V27.9656H84.8989C90.6254 27.9656 90.6254 22.0189 90.6254 19.9982C90.6254 17.9774 90.6254 12.0338 84.8989 12.0338Z" fill="#0C2340"/>
+    <path d="M106.312 12.0338C98.5654 12.0338 98.5654 15.7344 98.5654 22.0189C98.5654 28.3034 98.5654 32.0072 106.312 32.0072H107.592V27.9656H106.312C102.606 27.9656 102.272 26.2858 102.272 22.0189C102.272 17.7519 102.606 16.0752 106.312 16.0752H107.592V12.0338H106.312Z" fill="#0C2340"/>
+    <path d="M118.593 12.0338C115.572 12.0338 113.552 14.0545 113.552 17.0760V32.0071H117.258V17.0760C117.258 16.0752 117.938 16.0752 118.593 16.0752H123V12.0338H118.593Z" fill="#0C2340"/>
+    <path d="M143.034 25.6116L140.333 17.9774H138.313L135.612 25.6116L132.911 17.9774H129.204L134.331 32.0072H136.892L139.323 24.7131L141.754 32.0072H144.315L149.442 17.9774H145.735L143.034 25.6116Z" fill="#0C2340"/>
+  </svg>
+);
+
+// Ikony dla różnych sekcji w panelu bocznym
+const SidebarIcon = ({
+  icon,
+  label,
+  active = false,
+  badge = 0
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+  badge?: number;
+}) => {
   const theme = useTheme();
-
-  useEffect(() => {
-    const fetchChanges = async () => {
-      try {
-        setLoading(true);
-        const data = await getMockChanges();
-        setChanges(data);
-      } catch (error) {
-        console.error('Error fetching changes:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchChanges();
-  }, []);
-
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const getStatusInfo = (status: string) => {
-    switch (status) {
-      case 'New':
-        return {
-          color: theme.palette.primary.main,
-          label: 'Nowe',
-          background: alpha(theme.palette.primary.main, 0.1),
-        };
-      case 'InProgress':
-        return {
-          color: theme.palette.warning.main,
-          label: 'W trakcie',
-          background: alpha(theme.palette.warning.main, 0.1),
-        };
-      case 'Resolved':
-        return {
-          color: theme.palette.success.main,
-          label: 'Rozwiązane',
-          background: alpha(theme.palette.success.main, 0.1),
-        };
-      case 'Rejected':
-        return {
-          color: theme.palette.error.main,
-          label: 'Odrzucone',
-          background: alpha(theme.palette.error.main, 0.1),
-        };
-      case 'Approved':
-        return {
-          color: '#8256d0',
-          label: 'Zatwierdzone',
-          background: alpha('#8256d0', 0.1),
-        };
-      case 'Implementing':
-        return {
-          color: theme.palette.info.main,
-          label: 'Wdrażane',
-          background: alpha(theme.palette.info.main, 0.1),
-        };
-      default:
-        return {
-          color: theme.palette.grey[500],
-          label: status,
-          background: alpha(theme.palette.grey[500], 0.1),
-        };
-    }
-  };
-
-  const getPriorityInfo = (priority: string) => {
-    switch (priority) {
-      case 'Critical':
-        return {
-          color: theme.palette.error.main,
-          icon: <CircleIcon fontSize="small" />,
-        };
-      case 'High':
-        return {
-          color: theme.palette.warning.main,
-          icon: <CircleIcon fontSize="small" />,
-        };
-      case 'Medium':
-        return {
-          color: theme.palette.info.main,
-          icon: <CircleIcon fontSize="small" />,
-        };
-      case 'Low':
-        return {
-          color: theme.palette.success.main,
-          icon: <CircleIcon fontSize="small" />,
-        };
-      default:
-        return {
-          color: theme.palette.grey[500],
-          icon: <CircleIcon fontSize="small" />,
-        };
-    }
-  };
-
-  const countByStatus = (status: string) => {
-    return changes.filter((change) => change.status === status).length;
-  };
-
-  const gridItemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: (custom: number) => ({
-      opacity: 1,
-      y: 0,
-      transition: { 
-        delay: custom * 0.1,
-        duration: 0.5,
-        ease: "easeOut"
-      }
-    })
-  };
-
-  const tableRowVariants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: (custom: number) => ({
-      opacity: 1,
-      x: 0,
-      transition: { 
-        delay: custom * 0.05,
-        duration: 0.3,
-        ease: "easeOut"
-      }
-    })
-  };
-
-  const StatCard = ({ 
-    title, 
-    value, 
-    trend, 
-    color,
-    iconBackground,
-    index
-  }: { 
-    title: string; 
-    value: number; 
-    trend?: number;
-    color: string;
-    iconBackground: string;
-    index: number;
-  }) => (
-    <motion.div
-      variants={gridItemVariants}
-      initial="hidden"
-      animate="visible"
-      custom={index}
+  
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        pb: 1,
+        cursor: 'pointer',
+        opacity: active ? 1 : 0.6,
+        '&:hover': {
+          opacity: 1
+        }
+      }}
     >
-      <Card 
-        elevation={0}
-        sx={{ 
-          height: '100%',
-          borderRadius: 3,
-          border: `1px solid ${theme.palette.divider}`,
+      <Badge
+        badgeContent={badge > 0 ? badge : null}
+        color="error"
+        sx={{ mb: 0.5 }}
+      >
+        <Avatar
+          sx={{
+            bgcolor: active ? theme.palette.primary.main : 'transparent',
+            color: active ? 'white' : theme.palette.text.primary,
+            width: 36,
+            height: 36
+          }}
+        >
+          {icon}
+        </Avatar>
+      </Badge>
+      <Typography
+        variant="caption"
+        align="center"
+        sx={{
+          fontSize: '0.7rem',
+          color: theme.palette.text.secondary
         }}
       >
-        <CardContent sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-            <Typography 
-              color="text.secondary" 
-              variant="subtitle2"
-              sx={{ fontWeight: 500 }}
-            >
-              {title}
-            </Typography>
-            <Box 
-              sx={{ 
-                borderRadius: '50%', 
-                width: 40, 
-                height: 40, 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                backgroundColor: iconBackground,
-              }}
-            >
-              <CircleIcon sx={{ color: color, fontSize: 10 }} />
-            </Box>
-          </Box>
-          
-          {loading ? (
-            <Skeleton variant="text" width="50%" height={40} />
-          ) : (
-            <Typography 
-              variant="h4" 
-              component="div"
-              sx={{ 
-                fontWeight: 600,
-                mb: 1,
-                color: theme.palette.text.primary
-              }}
-            >
-              {value}
-            </Typography>
-          )}
-          
-          {trend !== undefined && (
-            <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-              {trend >= 0 ? (
-                <TrendingUpIcon 
-                  fontSize="small" 
-                  sx={{ color: theme.palette.success.main, mr: 0.5 }} 
-                />
-              ) : (
-                <TrendingDownIcon 
-                  fontSize="small" 
-                  sx={{ color: theme.palette.error.main, mr: 0.5 }} 
-                />
-              )}
-              <Typography 
-                variant="body2" 
-                component="span"
-                sx={{ 
-                  color: trend >= 0 
-                    ? theme.palette.success.main 
-                    : theme.palette.error.main,
-                  fontWeight: 500
-                }}
-              >
-                {Math.abs(trend)}% 
-              </Typography>
-              <Typography 
-                variant="body2" 
-                color="text.secondary"
-                sx={{ ml: 0.5 }}
-              >
-                od ostatniego miesiąca
-              </Typography>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-
-  return (
-    <PageTransition>
-      <Box>
-        <Box sx={{ mb: 4 }}>
-          <Typography 
-            variant="h1" 
-            sx={{ 
-              mb: 1,
-              fontWeight: 600,
-              fontSize: '1.75rem'
-            }}
-          >
-            Dashboard
-          </Typography>
-          <Typography 
-            variant="body1" 
-            color="text.secondary"
-            sx={{ maxWidth: '650px' }}
-          >
-            Przegląd kluczowych metryk i ostatnich zgłoszeń zmian inżynieryjnych w systemie.
-          </Typography>
-        </Box>
-
-        <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid item xs={12} sm={6} lg={3}>
-            <StatCard 
-              title="Nowe zgłoszenia" 
-              value={countByStatus('New')} 
-              trend={12}
-              color={theme.palette.primary.main}
-              iconBackground={alpha(theme.palette.primary.main, 0.1)}
-              index={1}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} lg={3}>
-            <StatCard 
-              title="W trakcie" 
-              value={countByStatus('InProgress') + countByStatus('Implementing')} 
-              trend={-5}
-              color={theme.palette.warning.main}
-              iconBackground={alpha(theme.palette.warning.main, 0.1)}
-              index={2}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} lg={3}>
-            <StatCard 
-              title="Rozwiązane" 
-              value={countByStatus('Resolved')} 
-              trend={8}
-              color={theme.palette.success.main}
-              iconBackground={alpha(theme.palette.success.main, 0.1)}
-              index={3}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} lg={3}>
-            <StatCard 
-              title="Odrzucone" 
-              value={countByStatus('Rejected')} 
-              trend={-2}
-              color={theme.palette.error.main}
-              iconBackground={alpha(theme.palette.error.main, 0.1)}
-              index={4}
-            />
-          </Grid>
-        </Grid>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.5 }}
-        >
-          <Paper 
-            elevation={0}
-            sx={{ 
-              width: '100%', 
-              overflow: 'hidden',
-              borderRadius: 3,
-              border: `1px solid ${theme.palette.divider}`,
-              mb: 4
-            }}
-          >
-            <Box
-              sx={{
-                p: 3,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderBottom: `1px solid ${theme.palette.divider}`,
-              }}
-            >
-              <Typography 
-                variant="h3" 
-                sx={{ fontWeight: 600 }}
-              >
-                Ostatnie zgłoszenia
-              </Typography>
-              
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Tooltip title="Wyszukaj">
-                  <IconButton size="small">
-                    <SearchIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Filtruj">
-                  <IconButton size="small">
-                    <FilterAltOutlinedIcon />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </Box>
-            
-            <TableContainer>
-              {loading ? (
-                <Box sx={{ p: 3 }}>
-                  <Stack spacing={2}>
-                    {[...Array(5)].map((_, index) => (
-                      <Skeleton 
-                        key={index} 
-                        variant="rectangular" 
-                        height={56} 
-                        sx={{ borderRadius: 1 }}
-                      />
-                    ))}
-                  </Stack>
-                </Box>
-              ) : (
-                <Table sx={{ minWidth: 700 }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Tytuł</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Autor</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Data utworzenia</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Priorytet</TableCell>
-                      <TableCell sx={{ width: 50 }}></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(rowsPerPage > 0
-                      ? changes.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                      : changes
-                    ).map((change, index) => {
-                      const statusInfo = getStatusInfo(change.status);
-                      const priorityInfo = getPriorityInfo(change.priority);
-                      
-                      return (
-                        <motion.tr
-                          key={change.id}
-                          variants={tableRowVariants}
-                          initial="hidden"
-                          animate="visible"
-                          custom={index}
-                          component={motion.tr}
-                          whileHover={{ 
-                            backgroundColor: theme.palette.mode === 'dark' 
-                              ? 'rgba(38, 198, 218, 0.08)'
-                              : 'rgba(0, 131, 143, 0.04)',
-                            transition: { duration: 0.1 }
-                          }}
-                          style={{ 
-                            cursor: 'pointer',
-                          }}
-                          onClick={() => navigate(`/change/${change.id}`)}
-                        >
-                          <TableCell 
-                            sx={{ 
-                              color: theme.palette.primary.main,
-                              fontWeight: 500,
-                              border: 0
-                            }}
-                          >
-                            {change.id}
-                          </TableCell>
-                          <TableCell sx={{ border: 0 }}>{change.title}</TableCell>
-                          <TableCell sx={{ border: 0 }}>{change.author}</TableCell>
-                          <TableCell sx={{ border: 0 }}>
-                            {new Date(change.createdAt).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell sx={{ border: 0 }}>
-                            <Chip
-                              label={statusInfo.label}
-                              size="small"
-                              sx={{ 
-                                backgroundColor: statusInfo.background,
-                                color: statusInfo.color,
-                                fontWeight: 500,
-                                borderRadius: '6px',
-                                '& .MuiChip-label': { px: 1.5 }
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell sx={{ border: 0 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <Box 
-                                component="span" 
-                                sx={{ 
-                                  color: priorityInfo.color,
-                                  display: 'flex',
-                                  mr: 1,
-                                  transform: 'scale(0.6)'
-                                }}
-                              >
-                                {priorityInfo.icon}
-                              </Box>
-                              {change.priority}
-                            </Box>
-                          </TableCell>
-                          <TableCell sx={{ border: 0 }}>
-                            <IconButton 
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Menu options
-                              }}
-                            >
-                              <MoreHorizIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
-                        </motion.tr>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              )}
-            </TableContainer>
-            
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={changes.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-            />
-          </Paper>
-        </motion.div>
-      </Box>
-    </PageTransition>
+        {label}
+      </Typography>
+    </Box>
   );
 };
 
-export default Dashboard;
+// Komponent przycisku głosowania
+const VoteButton = ({ type, onClick }: { type: 'yes' | 'no'; onClick?: () => void }) => {
+  return (
+    <Button
+      variant="contained"
+      size="small"
+      color={type === 'yes' ? 'success' : 'error'}
+      startIcon={type === 'yes' ? <CheckCircleIcon /> : <CancelIcon />}
+      sx={{
+        borderRadius: 1,
+        px: 2
+      }}
+      onClick={onClick}
+    >
+      {type === 'yes' ? 'Yes' : 'No'}
+    </Button>
+  );
+};
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
