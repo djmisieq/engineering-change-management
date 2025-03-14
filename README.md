@@ -36,15 +36,19 @@ bash ./setup-codespace.sh
 ```
 
 Skrypt wykona następujące czynności:
-- Zresetuje lokalne repozytorium, aby pasowało do remote
+- Sprawdzi, czy istnieją lokalne zmiany przed resetowaniem repozytorium
 - Zapewni istnienie katalogu public z niezbędnymi plikami
 - Zainstaluje zależności
 
 ### Krok 3: Uruchom aplikację
 
+Ze względu na nowszą wersję Node.js w Codespaces, uruchom aplikację używając:
+
 ```bash
-npm start
+bash ./start-dev.sh
 ```
+
+Skrypt ten ustawi odpowiednie zmienne środowiskowe, w tym `NODE_OPTIONS=--openssl-legacy-provider`, co rozwiązuje problemy z nowszymi wersjami Node.js.
 
 ### Krok 4: Sprawdź działanie aplikacji
 
@@ -56,19 +60,31 @@ npm start
 
 Jeśli napotkasz problemy z uruchomieniem aplikacji w Codespaces:
 
-1. Upewnij się, że skrypt konfiguracyjny został uruchomiony:
+1. Upewnij się, że używasz skryptu `start-dev.sh`:
    ```bash
-   bash ./setup-codespace.sh
+   bash ./start-dev.sh
    ```
 
 2. Sprawdź, czy port 3000 jest ustawiony jako "Public" w zakładce "PORTS"
 
-3. Sprawdź, czy katalog `public` istnieje i zawiera plik `index.html`:
+3. W przypadku problemów z komponentami, możesz przełączyć się na uproszczoną wersję aplikacji:
    ```bash
-   ls -la public
+   bash ./switch-app-version.sh simple
+   bash ./start-dev.sh
    ```
 
-4. Jeśli to nie pomoże, zrestartuj cały Codespace (zamknij i utwórz nowy)
+4. Aby wrócić do pełnej wersji:
+   ```bash
+   bash ./switch-app-version.sh restore
+   bash ./start-dev.sh
+   ```
+
+5. W przypadku błędów zależności npm, spróbuj:
+   ```bash
+   rm -rf node_modules
+   rm package-lock.json
+   npm install
+   ```
 
 ## Struktura projektu
 
