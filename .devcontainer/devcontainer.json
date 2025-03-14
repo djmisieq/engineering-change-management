@@ -15,7 +15,12 @@
         "esbenp.prettier-vscode",
         "ms-vscode.vscode-typescript-next",
         "github.vscode-pull-request-github"
-      ]
+      ],
+      "settings": {
+        "terminal.integrated.env.linux": {
+          "NODE_OPTIONS": "--openssl-legacy-provider"
+        }
+      }
     }
   },
   "postCreateCommand": "bash ./setup-codespace.sh",
