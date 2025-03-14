@@ -5,16 +5,6 @@ import {
   Typography,
   Grid,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
-  Button,
-  useTheme,
-  alpha,
   Skeleton,
   Stack,
   Divider,
@@ -28,6 +18,8 @@ import {
   SelectChangeEvent,
   Avatar,
   Badge,
+  Alert,
+  Snackbar
 } from '@mui/material';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
@@ -38,17 +30,15 @@ import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
 
 import { getMockChanges } from '../services/mockApi';
-import { 
-  getChangeTypes 
-} from '../services/dictionaryApi';
+import { getChangeTypes } from '../services/dictionaryApi';
+import { voteForChange } from '../services/voteService';
 import { Change } from '../types/change';
 import { ChangeType } from '../types/dictionaries';
 import PageTransition from '../components/PageTransition';
-import { motion } from 'framer-motion';
+import ChangeTable from '../components/ChangeTable';
+import StatisticCards from '../components/StatisticCards';
 
 // Logo SAXDOR
 const SaxdorLogo = () => (
@@ -77,7 +67,7 @@ const SidebarIcon = ({
   active?: boolean;
   badge?: number;
 }) => {
-  const theme = useTheme();
+  const navigate = useNavigate();
   
   return (
     <Box
@@ -92,6 +82,13 @@ const SidebarIcon = ({
           opacity: 1
         }
       }}
+      onClick={() => {
+        if (label === 'Product Council') {
+          navigate('/');
+        } else if (label === 'Engineer') {
+          navigate('/request');
+        }
+      }}
     >
       <Badge
         badgeContent={badge > 0 ? badge : null}
@@ -100,8 +97,8 @@ const SidebarIcon = ({
       >
         <Avatar
           sx={{
-            bgcolor: active ? theme.palette.primary.main : 'transparent',
-            color: active ? 'white' : theme.palette.text.primary,
+            bgcolor: active ? 'primary.main' : 'transparent',
+            color: active ? 'white' : 'text.primary',
             width: 36,
             height: 36
           }}
@@ -114,31 +111,12 @@ const SidebarIcon = ({
         align="center"
         sx={{
           fontSize: '0.7rem',
-          color: theme.palette.text.secondary
+          color: 'text.secondary'
         }}
       >
         {label}
       </Typography>
     </Box>
-  );
-};
-
-// Komponent przycisku głosowania
-const VoteButton = ({ type, onClick }: { type: 'yes' | 'no'; onClick?: () => void }) => {
-  return (
-    <Button
-      variant="contained"
-      size="small"
-      color={type === 'yes' ? 'success' : 'error'}
-      startIcon={type === 'yes' ? <CheckCircleIcon /> : <CancelIcon />}
-      sx={{
-        borderRadius: 1,
-        px: 2
-      }}
-      onClick={onClick}
-    >
-      {type === 'yes' ? 'Yes' : 'No'}
-    </Button>
   );
 };
 
@@ -171,8 +149,20 @@ const Dashboard: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const [filterReasonOfChange, setFilterReasonOfChange] = useState('');
   const [filterBoatRange, setFilterBoatRange] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState('createdAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [notification, setNotification] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
+  
   const navigate = useNavigate();
-  const theme = useTheme();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -189,6 +179,7 @@ const Dashboard: React.FC = () => {
         setChangeTypes(typesData.items);
       } catch (error) {
         console.error('Error fetching data:', error);
+        showNotification('Wystąpił błąd podczas pobierania danych', 'error');
       } finally {
         setLoading(false);
       }
@@ -208,65 +199,118 @@ const Dashboard: React.FC = () => {
   const handleFilterRangeChange = (event: SelectChangeEvent) => {
     setFilterBoatRange(event.target.value);
   };
+  
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
+  };
+  
+  const handleSortChange = (field: string) => {
+    if (field === sortField) {
+      // Jeśli kliknięto ten sam nagłówek, zmień kierunek sortowania
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Jeśli kliknięto inny nagłówek, ustaw nowe pole i kierunek domyślny
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+  
+  const handleVote = async (changeId: string, vote: 'yes' | 'no') => {
+    try {
+      setLoading(true);
+      const comments = vote === 'no' ? 'Głosuję przeciw' : undefined;
+      const updatedChange = await voteForChange(changeId, vote, comments);
+      
+      // Aktualizacja stanu zmian
+      setChanges(prevChanges => 
+        prevChanges.map(change => 
+          change.id === changeId ? updatedChange : change
+        )
+      );
+      
+      showNotification(`Pomyślnie zagłosowano ${vote === 'yes' ? 'za' : 'przeciw'} zmianą`, 'success');
+    } catch (error) {
+      console.error(`Error voting ${vote} for change ${changeId}:`, error);
+      showNotification('Wystąpił błąd podczas głosowania', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const showNotification = (message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
+    setNotification({
+      open: true,
+      message,
+      severity
+    });
+  };
+  
+  const handleCloseNotification = () => {
+    setNotification(prev => ({
+      ...prev,
+      open: false
+    }));
+  };
 
-  // Funkcja zwracająca kolor/etykietę dla typu zmiany
-  const getChangeTypeInfo = (typeId: string | undefined) => {
-    if (!typeId) return { code: "", label: "Nieokreślony", color: theme.palette.grey[500] };
+  // Sortowanie zmian
+  const sortChanges = (a: Change, b: Change) => {
+    let valueA = a[sortField as keyof Change];
+    let valueB = b[sortField as keyof Change];
     
-    const type = changeTypes.find(t => t.id === typeId);
-    if (!type) return { code: "", label: "Nieokreślony", color: theme.palette.grey[500] };
-    
-    const parts = type.code.split(' - ');
-    const number = parts[0];
-    
-    let color;
-    switch (number) {
-      case "1":
-        color = theme.palette.info.main;
-        break;
-      case "2":
-        color = theme.palette.warning.main;
-        break;
-      case "3":
-        color = theme.palette.success.main;
-        break;
-      case "4":
-        color = theme.palette.secondary.main;
-        break;
-      default:
-        color = theme.palette.primary.main;
+    // Obsługa zagnieżdżonych pól lub różnych typów danych
+    if (sortField === 'createdAt') {
+      return sortDirection === 'asc' 
+        ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     }
     
-    return {
-      code: number,
-      label: parts[1] || type.name,
-      color: color
-    };
+    if (typeof valueA === 'string' && typeof valueB === 'string') {
+      return sortDirection === 'asc' 
+        ? valueA.localeCompare(valueB)
+        : valueB.localeCompare(valueA);
+    }
+    
+    // Domyślne sortowanie
+    if (valueA < valueB) return sortDirection === 'asc' ? -1 : 1;
+    if (valueA > valueB) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
   };
 
   // Filtrowanie zmian w zależności od aktywnej zakładki
-  const filteredChanges = changes.filter(change => {
-    // Podstawowe filtrowanie wg zakładek
-    if (tabValue === 0) { // Voting
-      return change.votingStatus === 'Pending' || change.votingStatus === 'InProgress';
-    } else if (tabValue === 1) { // Progress
-      return change.status === 'InProgress' || change.status === 'Implementing';
-    } else { // Archive
-      return change.votingStatus === 'Completed' || change.votingStatus === 'Canceled';
-    }
-  }).filter(change => {
-    // Dodatkowe filtrowanie - typ zmiany
-    if (filterReasonOfChange && change.reasonOfChange !== filterReasonOfChange) {
-      return false;
-    }
-    
-    // Dodatkowe filtrowanie - zakres łodzi
-    if (filterBoatRange && change.boatRange !== filterBoatRange) {
-      return false;
-    }
-    
-    return true;
-  });
+  const filteredChanges = changes
+    .filter(change => {
+      // Podstawowe filtrowanie wg zakładek
+      if (tabValue === 0) { // Voting
+        return change.votingStatus === 'Pending' || change.votingStatus === 'InProgress';
+      } else if (tabValue === 1) { // Progress
+        return change.status === 'InProgress' || change.status === 'Implementing';
+      } else { // Archive
+        return change.votingStatus === 'Completed' || change.votingStatus === 'Canceled';
+      }
+    })
+    .filter(change => {
+      // Dodatkowe filtrowanie - typ zmiany
+      if (filterReasonOfChange && change.reasonOfChange !== filterReasonOfChange) {
+        return false;
+      }
+      
+      // Dodatkowe filtrowanie - zakres łodzi
+      if (filterBoatRange && change.boatRange !== filterBoatRange) {
+        return false;
+      }
+      
+      // Filtrowanie wg wyszukiwania
+      if (searchQuery) {
+        return (
+          change.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          change.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          change.description.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      }
+      
+      return true;
+    })
+    .sort(sortChanges);
 
   return (
     <PageTransition>
@@ -291,6 +335,8 @@ const Dashboard: React.FC = () => {
             <TextField
               placeholder="Search by ECR title"
               size="small"
+              value={searchQuery}
+              onChange={handleSearchChange}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -428,3 +474,79 @@ const Dashboard: React.FC = () => {
                   </Select>
                 </FormControl>
               </Box>
+              
+              {/* Karty statystyk */}
+              <Box sx={{ p: 2 }}>
+                <StatisticCards changes={changes} />
+              </Box>
+              
+              {/* Zawartość zakładek */}
+              <TabPanel value={tabValue} index={0}>
+                {loading ? (
+                  <Stack spacing={1} sx={{ p: 2 }}>
+                    <Skeleton variant="rectangular" height={60} />
+                    <Skeleton variant="rectangular" height={60} />
+                    <Skeleton variant="rectangular" height={60} />
+                  </Stack>
+                ) : (
+                  <ChangeTable 
+                    changes={filteredChanges} 
+                    tabType="voting" 
+                    onVote={handleVote}
+                  />
+                )}
+              </TabPanel>
+
+              <TabPanel value={tabValue} index={1}>
+                {loading ? (
+                  <Stack spacing={1} sx={{ p: 2 }}>
+                    <Skeleton variant="rectangular" height={60} />
+                    <Skeleton variant="rectangular" height={60} />
+                  </Stack>
+                ) : (
+                  <ChangeTable 
+                    changes={filteredChanges} 
+                    tabType="progress" 
+                  />
+                )}
+              </TabPanel>
+
+              <TabPanel value={tabValue} index={2}>
+                {loading ? (
+                  <Stack spacing={1} sx={{ p: 2 }}>
+                    <Skeleton variant="rectangular" height={60} />
+                    <Skeleton variant="rectangular" height={60} />
+                  </Stack>
+                ) : (
+                  <ChangeTable 
+                    changes={filteredChanges} 
+                    tabType="archive" 
+                  />
+                )}
+              </TabPanel>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Box>
+      
+      {/* Powiadomienia */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.severity} 
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
+    </PageTransition>
+  );
+};
+
+export default Dashboard;
