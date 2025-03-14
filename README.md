@@ -21,34 +21,36 @@ System do zarządzania zmianami inżynieryjnymi (Engineering Change Management),
 
 ## Uruchomienie projektu w GitHub Codespaces
 
+### ⚠️ Ważna informacja o wersji Node.js
+
+Projekt wymaga Node.js w wersji 16. Nowsze wersje (17+) powodują błędy OpenSSL.
+
 ### Krok 1: Otwórz repozytorium w Codespaces
 
 1. Na stronie repozytorium kliknij zielony przycisk "Code"
 2. Przejdź do zakładki "Codespaces"
 3. Kliknij "Create codespace on main"
 
-### Krok 2: Uruchom skrypt konfiguracyjny
+### Krok 2: Napraw wersję Node.js
 
-Jeśli skrypt nie uruchomił się automatycznie, wykonaj:
+Po otwarciu Codespaces, wykonaj poniższy skrypt aby zainstalować poprawną wersję Node.js:
 
 ```bash
-bash ./setup-codespace.sh
+bash ./fix-node-version.sh
 ```
 
-Skrypt wykona następujące czynności:
-- Sprawdzi, czy istnieją lokalne zmiany przed resetowaniem repozytorium
-- Zapewni istnienie katalogu public z niezbędnymi plikami
-- Zainstaluje zależności
+Skrypt ten:
+- Zainstaluje NVM (Node Version Manager)
+- Zmieni wersję Node.js na 16
+- Przeinstaluje zależności npm
 
 ### Krok 3: Uruchom aplikację
 
-Ze względu na nowszą wersję Node.js w Codespaces, uruchom aplikację używając:
+Po naprawieniu wersji Node.js, uruchom aplikację standardowym poleceniem:
 
 ```bash
-bash ./start-dev.sh
+npm start
 ```
-
-Skrypt ten ustawi odpowiednie zmienne środowiskowe, w tym `NODE_OPTIONS=--openssl-legacy-provider`, co rozwiązuje problemy z nowszymi wersjami Node.js.
 
 ### Krok 4: Sprawdź działanie aplikacji
 
@@ -58,33 +60,32 @@ Skrypt ten ustawi odpowiednie zmienne środowiskowe, w tym `NODE_OPTIONS=--opens
 
 ## Rozwiązywanie problemów z Codespaces
 
-Jeśli napotkasz problemy z uruchomieniem aplikacji w Codespaces:
+### Błąd "digital envelope routines::unsupported"
 
-1. Upewnij się, że używasz skryptu `start-dev.sh`:
-   ```bash
-   bash ./start-dev.sh
-   ```
+Błąd ten występuje w nowszych wersjach Node.js (17+) przy starszych aplikacjach React. Rozwiązanie:
 
-2. Sprawdź, czy port 3000 jest ustawiony jako "Public" w zakładce "PORTS"
+```bash
+bash ./fix-node-version.sh
+```
 
-3. W przypadku problemów z komponentami, możesz przełączyć się na uproszczoną wersję aplikacji:
+### Inne problemy:
+
+1. W przypadku problemów z komponentami, możesz przełączyć się na uproszczoną wersję aplikacji:
    ```bash
    bash ./switch-app-version.sh simple
-   bash ./start-dev.sh
+   npm start
    ```
 
-4. Aby wrócić do pełnej wersji:
+2. Aby wrócić do pełnej wersji:
    ```bash
    bash ./switch-app-version.sh restore
-   bash ./start-dev.sh
+   npm start
    ```
 
-5. W przypadku błędów zależności npm, spróbuj:
-   ```bash
-   rm -rf node_modules
-   rm package-lock.json
-   npm install
-   ```
+3. W przypadku problemów z Codespaces, możesz utworzyć nową instancję:
+   - Zamknij bieżący Codespace
+   - Utwórz nowy Codespace
+   - Uruchom skrypt naprawiający wersję Node.js
 
 ## Struktura projektu
 
