@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography,
@@ -17,43 +17,143 @@ import {
   Alert,
   Stack,
   useTheme,
-  Stepper,
-  Step,
-  StepLabel,
   alpha,
   Chip,
   IconButton,
   Tooltip,
   Breadcrumbs,
   Link,
+  InputAdornment,
+  CircularProgress,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import AttachFileOutlinedIcon from '@mui/icons-material/AttachFileOutlined';
 import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
-import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { submitChangeRequest } from '../services/mockApi';
+import { 
+  getBoatRanges, 
+  getBoatModels,
+  getChangeTypes,
+  getChangeReasons 
+} from '../services/dictionaryApi';
+import { 
+  BoatRange, 
+  BoatModel,
+  ChangeType,
+  ChangeReason 
+} from '../types/dictionaries';
 import PageTransition from '../components/PageTransition';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const steps = ['Informacje podstawowe', 'Szczegóły techniczne', 'Przegląd i zatwierdzenie'];
+// Logo SAXDOR
+const SaxdorLogo = () => (
+  <svg width="150" height="40" viewBox="0 0 150 40" fill="none">
+    <path d="M35.4805 19.9997H11.1602V24.0412H35.4805V19.9997Z" fill="#0C2340"/>
+    <path d="M35.4805 27.9656H11.1602V32.0071H35.4805V27.9656Z" fill="#0C2340"/>
+    <path d="M35.4805 12.0337H11.1602V16.0752H35.4805V12.0337Z" fill="#0C2340"/>
+    <path d="M53.2266 12.0338H47.5V32.0072H53.2266V12.0338Z" fill="#0C2340"/>
+    <path d="M68.4724 12.0338L64.4307 20.6411L68.4724 29.2483V32.0072H62.7458V29.2483L58.7041 20.6411L62.7458 12.0338H68.4724Z" fill="#0C2340"/>
+    <path d="M84.8989 22.0189H82.8787V17.9774H84.8989C85.999 17.9774 86.9191 18.3183 86.9191 19.9982C86.9191 21.678 85.999 22.0189 84.8989 22.0189ZM84.8989 12.0338H79.1724V32.0072H82.8787V27.9656H84.8989C90.6254 27.9656 90.6254 22.0189 90.6254 19.9982C90.6254 17.9774 90.6254 12.0338 84.8989 12.0338Z" fill="#0C2340"/>
+    <path d="M106.312 12.0338C98.5654 12.0338 98.5654 15.7344 98.5654 22.0189C98.5654 28.3034 98.5654 32.0072 106.312 32.0072H107.592V27.9656H106.312C102.606 27.9656 102.272 26.2858 102.272 22.0189C102.272 17.7519 102.606 16.0752 106.312 16.0752H107.592V12.0338H106.312Z" fill="#0C2340"/>
+    <path d="M118.593 12.0338C115.572 12.0338 113.552 14.0545 113.552 17.0760V32.0071H117.258V17.0760C117.258 16.0752 117.938 16.0752 118.593 16.0752H123V12.0338H118.593Z" fill="#0C2340"/>
+    <path d="M143.034 25.6116L140.333 17.9774H138.313L135.612 25.6116L132.911 17.9774H129.204L134.331 32.0072H136.892L139.323 24.7131L141.754 32.0072H144.315L149.442 17.9774H145.735L143.034 25.6116Z" fill="#0C2340"/>
+  </svg>
+);
 
 const RequestForChange: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
-  const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     priority: 'Medium',
-    impactArea: 'Production',
+    impactArea: '',
     requiredDate: '',
     justification: '',
-    affectedComponents: [],
-    technicalDescription: '',
-    testingProcedure: '',
-    rollbackPlan: '',
+    // Nowe pola
+    boatRange: '',
+    model: '',
+    suggestedBy: '',
+    typeOfChange: '',
+    reasonOfChange: '',
+    estimatedCostOfLabor: '',
+    estimatedCostOfParts: '',
   });
+  
+  // Słowniki dla list wyboru
+  const [boatRanges, setBoatRanges] = useState<BoatRange[]>([]);
+  const [boatModels, setBoatModels] = useState<BoatModel[]>([]);
+  const [changeTypes, setChangeTypes] = useState<ChangeType[]>([]);
+  const [changeReasons, setChangeReasons] = useState<ChangeReason[]>([]);
+  
+  // Stany ładowania dla list rozwijanych
+  const [loadingRanges, setLoadingRanges] = useState(false);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [loadingTypes, setLoadingTypes] = useState(false);
+  const [loadingReasons, setLoadingReasons] = useState(false);
+  
   const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+
+  // Pobieranie słowników podczas inicjalizacji komponentu
+  useEffect(() => {
+    const fetchDictionaries = async () => {
+      try {
+        setLoadingRanges(true);
+        setLoadingTypes(true);
+        setLoadingReasons(true);
+        
+        const [rangesResponse, typesResponse, reasonsResponse] = await Promise.all([
+          getBoatRanges(),
+          getChangeTypes(),
+          getChangeReasons()
+        ]);
+        
+        setBoatRanges(rangesResponse.items);
+        setChangeTypes(typesResponse.items);
+        setChangeReasons(reasonsResponse.items);
+      } catch (error) {
+        console.error('Błąd podczas pobierania słowników', error);
+      } finally {
+        setLoadingRanges(false);
+        setLoadingTypes(false);
+        setLoadingReasons(false);
+      }
+    };
+    
+    fetchDictionaries();
+  }, []);
+  
+  // Pobieranie modeli dla wybranego zakresu łodzi
+  useEffect(() => {
+    const fetchModels = async () => {
+      if (formData.boatRange) {
+        try {
+          setLoadingModels(true);
+          const modelsResponse = await getBoatModels(formData.boatRange);
+          setBoatModels(modelsResponse.items);
+        } catch (error) {
+          console.error('Błąd podczas pobierania modeli', error);
+        } finally {
+          setLoadingModels(false);
+        }
+      } else {
+        setBoatModels([]);
+      }
+    };
+    
+    fetchModels();
+  }, [formData.boatRange]);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
@@ -65,20 +165,34 @@ const RequestForChange: React.FC = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleNext = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep + 1);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleNumberChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+    
+    // Walidacja, aby upewnić się, że wprowadzane są tylko liczby
+    if (value === '' || /^\d+(\.\d{0,2})?$/.test(value)) {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
-  const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      const newFiles = Array.from(event.target.files);
+      setFiles((prevFiles) => [...prevFiles, ...newFiles]);
+    }
+  };
+
+  const handleRemoveFile = (fileToRemove: File) => {
+    setFiles((prevFiles) => prevFiles.filter(file => file !== fileToRemove));
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     try {
-      await submitChangeRequest(formData);
+      await submitChangeRequest({
+        ...formData,
+        estimatedCostOfLabor: formData.estimatedCostOfLabor ? parseFloat(formData.estimatedCostOfLabor) : 0,
+        estimatedCostOfParts: formData.estimatedCostOfParts ? parseFloat(formData.estimatedCostOfParts) : 0,
+      });
       setOpenSnackbar(true);
       setTimeout(() => {
         navigate('/');
@@ -88,533 +202,590 @@ const RequestForChange: React.FC = () => {
     }
   };
 
-  const formVariants = {
-    hidden: { opacity: 0 },
-    visible: { 
-      opacity: 1,
-      transition: { 
-        staggerChildren: 0.1,
-        delayChildren: 0.2
-      }
-    },
-    exit: { 
-      opacity: 0,
-      y: 20,
-      transition: {
-        duration: 0.2
-      }
-    }
-  };
-  
-  const formItemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: { 
-      y: 0, 
-      opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 300,
-        damping: 30
-      }
-    }
-  };
-
   return (
     <PageTransition>
-      <Box>
-        <Box sx={{ mb: 4 }}>
-          <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
-            <Link 
-              color="inherit" 
-              href="#" 
-              underline="hover" 
-              onClick={(e) => {
-                e.preventDefault();
-                navigate('/');
-              }}
-            >
-              Dashboard
-            </Link>
-            <Typography color="text.primary">Nowe zgłoszenie zmiany</Typography>
-          </Breadcrumbs>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <IconButton
-                sx={{ 
-                  color: theme.palette.text.secondary,
-                  border: `1px solid ${theme.palette.divider}`,
-                  borderRadius: 2
-                }}
-                onClick={() => navigate('/')}
-              >
-                <ArrowBackIcon />
-              </IconButton>
-            </motion.div>
-            
-            <Typography 
-              variant="h1" 
-              sx={{ 
-                fontWeight: 600,
-                fontSize: '1.75rem'
-              }}
-            >
-              Nowe zgłoszenie zmiany inżynieryjnej
-            </Typography>
+      <Box sx={{ maxWidth: 1200, mx: 'auto', mb: 8 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+          <Box sx={{ width: 240 }}>
+            <SaxdorLogo />
           </Box>
+          <Typography 
+            variant="h4" 
+            component="h1" 
+            align="center"
+            sx={{ 
+              fontWeight: 'bold',
+              flex: 1,
+              textTransform: 'uppercase'
+            }}
+          >
+            HOW TO ENTER A REQUEST
+          </Typography>
+          <Box sx={{ width: 240 }} />
         </Box>
-
-        <Paper 
-          elevation={0}
-          sx={{ 
-            borderRadius: 3,
-            overflow: 'hidden',
-            border: `1px solid ${theme.palette.divider}`,
-            mb: 4
-          }}
-        >
-          <Box sx={{ 
-            bgcolor: alpha(theme.palette.primary.main, 0.04),
-            py: 3,
-            px: 4,
-            borderBottom: `1px solid ${theme.palette.divider}`
-          }}>
-            <Stepper activeStep={activeStep} alternativeLabel>
-              {steps.map((label, index) => (
-                <Step key={label}>
-                  <StepLabel
-                    StepIconProps={{
-                      style: {
-                        color: activeStep === index 
-                          ? theme.palette.primary.main
-                          : activeStep > index
-                            ? theme.palette.success.main
-                            : undefined
-                      }
+        
+        <Grid container spacing={4}>
+          {/* Lewa kolumna menu */}
+          <Grid item xs={12} md={3}>
+            <Paper 
+              elevation={0}
+              sx={{ 
+                borderRadius: 2,
+                overflow: 'hidden',
+                border: `1px solid ${theme.palette.divider}`,
+              }}
+            >
+              <Stack spacing={0.5} sx={{ p: 2 }}>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    sx={{ 
+                      borderRadius: 1,
+                      justifyContent: 'flex-start',
+                      p: 1.5,
+                      fontWeight: 'bold',
+                      borderColor: theme.palette.primary.main,
+                      color: theme.palette.primary.main,
+                      bgcolor: alpha(theme.palette.primary.main, 0.05)
                     }}
                   >
-                    <Typography 
-                      variant="body2" 
+                    Engineering Change Request
+                  </Button>
+                </motion.div>
+                
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    sx={{ 
+                      borderRadius: 1,
+                      justifyContent: 'flex-start',
+                      p: 1.5
+                    }}
+                    onClick={() => navigate('/')}
+                  >
+                    List of requests
+                  </Button>
+                </motion.div>
+                
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    sx={{ 
+                      borderRadius: 1,
+                      justifyContent: 'flex-start',
+                      p: 1.5
+                    }}
+                  >
+                    BI Report
+                  </Button>
+                </motion.div>
+                
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    sx={{ 
+                      borderRadius: 1,
+                      justifyContent: 'flex-start',
+                      p: 1.5
+                    }}
+                  >
+                    ECN Generator
+                  </Button>
+                </motion.div>
+                
+                <Box sx={{ my: 4 }} />
+                
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    sx={{ 
+                      borderRadius: 1,
+                      justifyContent: 'flex-start',
+                      p: 1.5,
+                      fontSize: '0.75rem'
+                    }}
+                  >
+                    Request application improvements
+                  </Button>
+                </motion.div>
+              </Stack>
+            </Paper>
+          </Grid>
+          
+          {/* Główna zawartość - formularz */}
+          <Grid item xs={12} md={9}>
+            <Box 
+              component="form" 
+              onSubmit={handleSubmit}
+              sx={{ 
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 1 }}>
+                <Button
+                  variant="outlined"
+                  size="medium"
+                  startIcon={<ArrowBackIosNewIcon fontSize="small" />}
+                  sx={{
+                    borderRadius: 4,
+                    border: '1px solid #ccc',
+                    color: '#555',
+                    px: 2
+                  }}
+                >
+                  Enter request
+                </Button>
+              </Box>
+              
+              <Paper 
+                elevation={0}
+                sx={{ 
+                  borderRadius: 2,
+                  border: '1px solid #ddd',
+                  p: 3
+                }}
+              >
+                <Stack spacing={3}>
+                  {/* Tytuł */}
+                  <Box>
+                    <InputLabel 
+                      required 
+                      htmlFor="title"
                       sx={{ 
-                        fontWeight: activeStep === index ? 600 : 400,
-                        color: activeStep === index ? 'primary.main' : 'text.primary'
+                        mb: 1,
+                        fontWeight: 'medium',
+                        fontSize: '0.875rem'
                       }}
                     >
-                      {label}
-                    </Typography>
-                  </StepLabel>
-                </Step>
-              ))}
-            </Stepper>
-          </Box>
-
-          <Box sx={{ p: 4 }}>
-            <AnimatePresence mode="wait">
-              <motion.form
-                key={activeStep}
-                variants={formVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                onSubmit={activeStep === 2 ? handleSubmit : handleNext}
-              >
-                {activeStep === 0 && (
-                  <Stack spacing={4}>
-                    <motion.div variants={formItemVariants}>
-                      <Box>
-                        <Typography variant="h6" gutterBottom>
-                          Informacje podstawowe
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" paragraph>
-                          Wprowadź kluczowe informacje o zgłaszanej zmianie inżynieryjnej.
-                        </Typography>
-                      </Box>
-                    </motion.div>
-                    
-                    <motion.div variants={formItemVariants}>
-                      <TextField
-                        required
-                        fullWidth
-                        label="Tytuł zmiany"
-                        name="title"
-                        value={formData.title}
-                        onChange={handleChange}
-                        placeholder="Np. Zmiana materiału obudowy silnika SR-200"
-                        InputProps={{
-                          sx: { borderRadius: 2 }
-                        }}
-                      />
-                    </motion.div>
-
-                    <motion.div variants={formItemVariants}>
-                      <TextField
-                        required
-                        fullWidth
-                        multiline
-                        rows={4}
-                        label="Opis zmiany"
-                        name="description"
-                        value={formData.description}
-                        onChange={handleChange}
-                        placeholder="Opisz zakres i cel proponowanej zmiany..."
-                        InputProps={{
-                          sx: { borderRadius: 2 }
-                        }}
-                      />
-                    </motion.div>
-
-                    <Grid container spacing={3}>
-                      <Grid item xs={12} sm={6}>
-                        <motion.div variants={formItemVariants}>
-                          <FormControl fullWidth required>
-                            <InputLabel>Priorytet</InputLabel>
-                            <Select
-                              name="priority"
-                              value={formData.priority}
-                              label="Priorytet"
-                              onChange={handleSelectChange}
-                              sx={{ borderRadius: 2 }}
-                            >
-                              <MenuItem value="Low">Niski</MenuItem>
-                              <MenuItem value="Medium">Średni</MenuItem>
-                              <MenuItem value="High">Wysoki</MenuItem>
-                              <MenuItem value="Critical">Krytyczny</MenuItem>
-                            </Select>
-                          </FormControl>
-                        </motion.div>
-                      </Grid>
-
-                      <Grid item xs={12} sm={6}>
-                        <motion.div variants={formItemVariants}>
-                          <FormControl fullWidth required>
-                            <InputLabel>Obszar wpływu</InputLabel>
-                            <Select
-                              name="impactArea"
-                              value={formData.impactArea}
-                              label="Obszar wpływu"
-                              onChange={handleSelectChange}
-                              sx={{ borderRadius: 2 }}
-                            >
-                              <MenuItem value="Design">Projekt</MenuItem>
-                              <MenuItem value="Production">Produkcja</MenuItem>
-                              <MenuItem value="Quality">Jakość</MenuItem>
-                              <MenuItem value="Documentation">Dokumentacja</MenuItem>
-                              <MenuItem value="Other">Inny</MenuItem>
-                            </Select>
-                          </FormControl>
-                        </motion.div>
-                      </Grid>
-                    </Grid>
-
-                    <Grid container spacing={3}>
-                      <Grid item xs={12} sm={6}>
-                        <motion.div variants={formItemVariants}>
-                          <TextField
-                            fullWidth
-                            required
-                            label="Wymagana data wdrożenia"
-                            name="requiredDate"
-                            type="date"
-                            InputLabelProps={{
-                              shrink: true,
-                            }}
-                            value={formData.requiredDate}
-                            onChange={handleChange}
-                            InputProps={{
-                              sx: { borderRadius: 2 }
-                            }}
-                          />
-                        </motion.div>
-                      </Grid>
-                    </Grid>
-
-                    <motion.div variants={formItemVariants}>
-                      <TextField
-                        required
-                        fullWidth
-                        multiline
-                        rows={3}
-                        label="Uzasadnienie zmiany"
-                        name="justification"
-                        value={formData.justification}
-                        onChange={handleChange}
-                        placeholder="Wyjaśnij, dlaczego ta zmiana jest potrzebna..."
-                        InputProps={{
-                          sx: { borderRadius: 2 }
-                        }}
-                      />
-                    </motion.div>
-                  </Stack>
-                )}
-
-                {activeStep === 1 && (
-                  <Stack spacing={4}>
-                    <motion.div variants={formItemVariants}>
-                      <Box>
-                        <Typography variant="h6" gutterBottom>
-                          Szczegóły techniczne
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" paragraph>
-                          Podaj techniczne szczegóły zmiany oraz plan wdrożenia i testów.
-                        </Typography>
-                      </Box>
-                    </motion.div>
-                    
-                    <motion.div variants={formItemVariants}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={4}
-                        label="Szczegółowy opis techniczny"
-                        name="technicalDescription"
-                        value={formData.technicalDescription}
-                        onChange={handleChange}
-                        placeholder="Opisz szczegóły techniczne proponowanej zmiany..."
-                        InputProps={{
-                          sx: { borderRadius: 2 }
-                        }}
-                      />
-                    </motion.div>
-                    
-                    <motion.div variants={formItemVariants}>
-                      <Box sx={{ 
-                        border: `1px dashed ${theme.palette.divider}`,
-                        borderRadius: 2,
-                        p: 3,
-                        textAlign: 'center',
-                        bgcolor: alpha(theme.palette.primary.main, 0.02)
-                      }}>
-                        <CloudUploadOutlinedIcon 
-                          sx={{ 
-                            fontSize: 40, 
-                            color: theme.palette.text.secondary,
-                            mb: 1
-                          }} 
-                        />
-                        <Typography variant="subtitle1" gutterBottom>
-                          Załącz dokumentację techniczną
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                          Przeciągnij i upuść pliki lub kliknij, aby wybrać
-                        </Typography>
-                        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                          <Button
-                            variant="outlined"
-                            component="label"
-                            startIcon={<AttachFileOutlinedIcon />}
-                            sx={{ 
-                              borderRadius: 2,
-                              textTransform: 'none'
-                            }}
-                          >
-                            Wybierz pliki
-                            <input
-                              type="file"
-                              hidden
-                              multiple
-                            />
-                          </Button>
-                        </motion.div>
-                      </Box>
-                    </motion.div>
-
-                    <motion.div variants={formItemVariants}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={3}
-                        label="Procedura testowania"
-                        name="testingProcedure"
-                        value={formData.testingProcedure}
-                        onChange={handleChange}
-                        placeholder="Opisz, jak będzie testowana zmiana przed wdrożeniem produkcyjnym..."
-                        InputProps={{
-                          sx: { borderRadius: 2 }
-                        }}
-                      />
-                    </motion.div>
-
-                    <motion.div variants={formItemVariants}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={3}
-                        label="Plan wycofania zmiany"
-                        name="rollbackPlan"
-                        value={formData.rollbackPlan}
-                        onChange={handleChange}
-                        placeholder="Opisz plan wycofania zmiany w przypadku problemów..."
-                        InputProps={{
-                          sx: { borderRadius: 2 }
-                        }}
-                      />
-                    </motion.div>
-                  </Stack>
-                )}
-
-                {activeStep === 2 && (
-                  <Stack spacing={4}>
-                    <motion.div variants={formItemVariants}>
-                      <Box>
-                        <Typography variant="h6" gutterBottom>
-                          Przegląd i zatwierdzenie
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" paragraph>
-                          Sprawdź wprowadzone informacje przed wysłaniem zgłoszenia.
-                        </Typography>
-                      </Box>
-                    </motion.div>
-
-                    <motion.div variants={formItemVariants}>
-                      <Paper 
-                        variant="outlined" 
+                      Title
+                    </InputLabel>
+                    <TextField
+                      id="title"
+                      fullWidth
+                      name="title"
+                      value={formData.title}
+                      onChange={handleChange}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 1,
+                        }
+                      }}
+                    />
+                  </Box>
+                  
+                  {/* Boat range */}
+                  <Box>
+                    <InputLabel 
+                      required 
+                      htmlFor="boatRange"
+                      sx={{ 
+                        mb: 1,
+                        fontWeight: 'medium',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      Boat range
+                    </InputLabel>
+                    <FormControl fullWidth>
+                      <Select
+                        id="boatRange"
+                        name="boatRange"
+                        value={formData.boatRange}
+                        onChange={handleSelectChange}
+                        displayEmpty
+                        IconComponent={KeyboardArrowDownIcon}
                         sx={{ 
-                          p: 3,
-                          borderRadius: 2
+                          borderRadius: 1,
+                        }}
+                        endAdornment={
+                          loadingRanges ? (
+                            <InputAdornment position="end">
+                              <CircularProgress size={20} />
+                            </InputAdornment>
+                          ) : null
+                        }
+                      >
+                        <MenuItem value="">
+                          <em>Wybierz zakres łodzi</em>
+                        </MenuItem>
+                        {boatRanges.map((range) => (
+                          <MenuItem key={range.id} value={range.id}>
+                            {range.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                  
+                  {/* Model */}
+                  <Box>
+                    <InputLabel 
+                      required 
+                      htmlFor="model"
+                      sx={{ 
+                        mb: 1,
+                        fontWeight: 'medium',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      Model
+                    </InputLabel>
+                    <FormControl fullWidth>
+                      <Select
+                        id="model"
+                        name="model"
+                        value={formData.model}
+                        onChange={handleSelectChange}
+                        displayEmpty
+                        disabled={!formData.boatRange || loadingModels}
+                        IconComponent={KeyboardArrowDownIcon}
+                        sx={{ 
+                          borderRadius: 1,
+                        }}
+                        endAdornment={
+                          loadingModels ? (
+                            <InputAdornment position="end">
+                              <CircularProgress size={20} />
+                            </InputAdornment>
+                          ) : null
+                        }
+                      >
+                        <MenuItem value="">
+                          <em>Wybierz model łodzi</em>
+                        </MenuItem>
+                        {boatModels.map((model) => (
+                          <MenuItem key={model.id} value={model.id}>
+                            {model.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                  
+                  {/* Suggested by */}
+                  <Box>
+                    <InputLabel 
+                      htmlFor="suggestedBy"
+                      sx={{ 
+                        mb: 1,
+                        fontWeight: 'medium',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      Suggested by
+                    </InputLabel>
+                    <TextField
+                      id="suggestedBy"
+                      fullWidth
+                      name="suggestedBy"
+                      value={formData.suggestedBy}
+                      onChange={handleChange}
+                      placeholder="Np. Dział Inżynierii, Klient, itp."
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 1,
+                        }
+                      }}
+                    />
+                  </Box>
+                  
+                  {/* Type of change */}
+                  <Box>
+                    <InputLabel 
+                      required 
+                      htmlFor="typeOfChange"
+                      sx={{ 
+                        mb: 1,
+                        fontWeight: 'medium',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      Type of change
+                    </InputLabel>
+                    <FormControl fullWidth>
+                      <Select
+                        id="typeOfChange"
+                        name="typeOfChange"
+                        value={formData.typeOfChange}
+                        onChange={handleSelectChange}
+                        displayEmpty
+                        IconComponent={KeyboardArrowDownIcon}
+                        sx={{ 
+                          borderRadius: 1,
+                        }}
+                        endAdornment={
+                          loadingTypes ? (
+                            <InputAdornment position="end">
+                              <CircularProgress size={20} />
+                            </InputAdornment>
+                          ) : null
+                        }
+                      >
+                        <MenuItem value="">
+                          <em>Wybierz typ zmiany</em>
+                        </MenuItem>
+                        {changeTypes.map((type) => (
+                          <MenuItem key={type.id} value={type.id}>
+                            {type.code} - {type.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                  
+                  {/* Reason of change */}
+                  <Box>
+                    <InputLabel 
+                      required 
+                      htmlFor="reasonOfChange"
+                      sx={{ 
+                        mb: 1,
+                        fontWeight: 'medium',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      Reason of change
+                    </InputLabel>
+                    <FormControl fullWidth>
+                      <Select
+                        id="reasonOfChange"
+                        name="reasonOfChange"
+                        value={formData.reasonOfChange}
+                        onChange={handleSelectChange}
+                        displayEmpty
+                        IconComponent={KeyboardArrowDownIcon}
+                        sx={{ 
+                          borderRadius: 1,
+                        }}
+                        endAdornment={
+                          loadingReasons ? (
+                            <InputAdornment position="end">
+                              <CircularProgress size={20} />
+                            </InputAdornment>
+                          ) : null
+                        }
+                      >
+                        <MenuItem value="">
+                          <em>Wybierz powód zmiany</em>
+                        </MenuItem>
+                        {changeReasons.map((reason) => (
+                          <MenuItem key={reason.id} value={reason.id}>
+                            {reason.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                  
+                  {/* Opis */}
+                  <Box>
+                    <InputLabel 
+                      required 
+                      htmlFor="description"
+                      sx={{ 
+                        mb: 1,
+                        fontWeight: 'medium',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      Description
+                    </InputLabel>
+                    <TextField
+                      id="description"
+                      fullWidth
+                      multiline
+                      rows={4}
+                      name="description"
+                      value={formData.description}
+                      onChange={handleChange}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 1,
+                        }
+                      }}
+                    />
+                  </Box>
+                  
+                  {/* Koszty */}
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} sm={6}>
+                      <InputLabel 
+                        htmlFor="estimatedCostOfLabor"
+                        sx={{ 
+                          mb: 1,
+                          fontWeight: 'medium',
+                          fontSize: '0.875rem'
                         }}
                       >
-                        <Grid container spacing={3}>
-                          <Grid item xs={12} sm={6}>
-                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                              Tytuł
-                            </Typography>
-                            <Typography variant="body1" paragraph>
-                              {formData.title || '(nie określono)'}
-                            </Typography>
-                          </Grid>
-                          
-                          <Grid item xs={12} sm={6}>
-                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                              Priorytet
-                            </Typography>
-                            <Chip 
-                              label={formData.priority} 
-                              size="small"
-                              sx={{ 
-                                borderRadius: 1,
-                                bgcolor: formData.priority === 'Critical' 
-                                  ? alpha(theme.palette.error.main, 0.1)
-                                  : formData.priority === 'High'
-                                    ? alpha(theme.palette.warning.main, 0.1)
-                                    : alpha(theme.palette.info.main, 0.1),
-                                color: formData.priority === 'Critical' 
-                                  ? theme.palette.error.main
-                                  : formData.priority === 'High'
-                                    ? theme.palette.warning.main
-                                    : theme.palette.info.main
-                              }}
-                            />
-                          </Grid>
-                          
-                          <Grid item xs={12}>
-                            <Divider />
-                          </Grid>
-                          
-                          <Grid item xs={12} sm={6}>
-                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                              Obszar wpływu
-                            </Typography>
-                            <Typography variant="body1" paragraph>
-                              {formData.impactArea || '(nie określono)'}
-                            </Typography>
-                          </Grid>
-                          
-                          <Grid item xs={12} sm={6}>
-                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                              Wymagana data wdrożenia
-                            </Typography>
-                            <Typography variant="body1" paragraph>
-                              {formData.requiredDate || '(nie określono)'}
-                            </Typography>
-                          </Grid>
-                          
-                          <Grid item xs={12}>
-                            <Divider />
-                          </Grid>
-                          
-                          <Grid item xs={12}>
-                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                              Opis zmiany
-                            </Typography>
-                            <Typography variant="body1" paragraph>
-                              {formData.description || '(nie określono)'}
-                            </Typography>
-                          </Grid>
-                          
-                          <Grid item xs={12}>
-                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                              Uzasadnienie zmiany
-                            </Typography>
-                            <Typography variant="body1" paragraph>
-                              {formData.justification || '(nie określono)'}
-                            </Typography>
-                          </Grid>
-                        </Grid>
-                      </Paper>
-                    </motion.div>
-                    
-                    <motion.div variants={formItemVariants}>
-                      <Box sx={{ 
-                        p: 3, 
-                        bgcolor: alpha(theme.palette.warning.main, 0.05),
-                        borderRadius: 2,
-                        border: `1px solid ${alpha(theme.palette.warning.main, 0.3)}`
-                      }}>
-                        <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <HelpOutlineOutlinedIcon fontSize="small" color="warning" />
-                          Uwaga
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Po zatwierdzeniu zgłoszenia, zostanie ono przesłane do Product Council w celu
-                          wstępnej weryfikacji. Możesz śledzić status zgłoszenia na dashboardzie.
-                        </Typography>
-                      </Box>
-                    </motion.div>
-                  </Stack>
-                )}
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                    <Button
-                      variant="outlined"
-                      onClick={activeStep === 0 ? () => navigate('/') : handleBack}
-                      sx={{ 
-                        borderRadius: 2,
-                        px: 4
-                      }}
-                    >
-                      {activeStep === 0 ? 'Anuluj' : 'Wstecz'}
-                    </Button>
-                  </motion.div>
+                        Estimated cost of labor
+                      </InputLabel>
+                      <TextField
+                        id="estimatedCostOfLabor"
+                        fullWidth
+                        name="estimatedCostOfLabor"
+                        value={formData.estimatedCostOfLabor}
+                        onChange={handleNumberChange}
+                        type="number"
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">€</InputAdornment>,
+                          sx: { borderRadius: 1 }
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <InputLabel 
+                        htmlFor="estimatedCostOfParts"
+                        sx={{ 
+                          mb: 1,
+                          fontWeight: 'medium',
+                          fontSize: '0.875rem'
+                        }}
+                      >
+                        Estimated cost of parts
+                      </InputLabel>
+                      <TextField
+                        id="estimatedCostOfParts"
+                        fullWidth
+                        name="estimatedCostOfParts"
+                        value={formData.estimatedCostOfParts}
+                        onChange={handleNumberChange}
+                        type="number"
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">€</InputAdornment>,
+                          sx: { borderRadius: 1 }
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
                   
-                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      color="primary"
+                  {/* Załączniki */}
+                  <Box>
+                    <InputLabel 
+                      htmlFor="attachments"
                       sx={{ 
-                        borderRadius: 2,
-                        px: 4
+                        mb: 1,
+                        fontWeight: 'medium',
+                        fontSize: '0.875rem'
                       }}
                     >
-                      {activeStep === steps.length - 1 ? 'Zatwierdź i wyślij' : 'Dalej'}
-                    </Button>
-                  </motion.div>
-                </Box>
-              </motion.form>
-            </AnimatePresence>
-          </Box>
-        </Paper>
-
-        <Snackbar 
-          open={openSnackbar} 
-          autoHideDuration={6000} 
+                      Attachments
+                    </InputLabel>
+                    <Box 
+                      sx={{ 
+                        border: `1px dashed ${theme.palette.divider}`,
+                        borderRadius: 1,
+                        p: 3,
+                        bgcolor: alpha(theme.palette.background.default, 0.5),
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          bgcolor: alpha(theme.palette.background.default, 0.8),
+                        }
+                      }}
+                      component="label"
+                    >
+                      <input
+                        type="file"
+                        multiple
+                        hidden
+                        onChange={handleFileChange}
+                      />
+                      <CloudUploadOutlinedIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
+                      <Typography variant="body1" gutterBottom>
+                        Drag and drop files here
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        or
+                      </Typography>
+                      <Button 
+                        variant="outlined" 
+                        component="span"
+                        sx={{ borderRadius: 1 }}
+                      >
+                        Browse Files
+                      </Button>
+                    </Box>
+                    
+                    {/* Lista załączników */}
+                    {files.length > 0 && (
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          mt: 2,
+                          borderRadius: 1,
+                          overflow: 'hidden'
+                        }}
+                      >
+                        <List dense>
+                          {files.map((file, index) => (
+                            <ListItem
+                              key={`${file.name}-${index}`}
+                              secondaryAction={
+                                <IconButton 
+                                  edge="end" 
+                                  aria-label="delete"
+                                  onClick={() => handleRemoveFile(file)}
+                                >
+                                  <DeleteOutlineIcon fontSize="small" />
+                                </IconButton>
+                              }
+                            >
+                              <ListItemIcon>
+                                <InsertDriveFileOutlinedIcon fontSize="small" />
+                              </ListItemIcon>
+                              <ListItemText
+                                primary={file.name}
+                                secondary={`${(file.size / 1024).toFixed(1)} KB`}
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Paper>
+                    )}
+                  </Box>
+                </Stack>
+              </Paper>
+              
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => navigate('/')}
+                  sx={{ borderRadius: 1 }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  sx={{ borderRadius: 1 }}
+                >
+                  Submit Request
+                </Button>
+              </Box>
+            </Box>
+          </Grid>
+        </Grid>
+        
+        <Snackbar
+          open={openSnackbar}
+          autoHideDuration={6000}
           onClose={() => setOpenSnackbar(false)}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
-          <Alert 
-            onClose={() => setOpenSnackbar(false)} 
-            severity="success" 
+          <Alert
+            onClose={() => setOpenSnackbar(false)}
+            severity="success"
             variant="filled"
             sx={{ width: '100%' }}
           >
